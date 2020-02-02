@@ -1,0 +1,11 @@
+//
+// Created by intellij-pest on 2020-02-01
+// queries
+// Author: felipe-wsl
+//
+
+query = { field ~ "=" ~ mterm }
+field = {
+    author | feature | region | accession |
+}
+mterm = _{ "{"~ term ~ ("|" ~ term)* ~ "}" }

@@ -1,0 +1,231 @@
+WHITESPACE = _{" " | NEWLINE | "\t" }
+file = {
+    SOI ~ record+ ~ EOI
+}
+record = {
+    "\n"* ~"\n"? ~header ~ features ~ origin ~ "//"
+}
+header ={
+    "LOCUS" ~ accession ~ size ~ alphabet ~ conformation ~ section ~ date ~
+    def~ acc~ ver ~ dblk? ~ kwords ~ src~ organism~ refs~ commt?~((! "FEATURES") ~ ANY)*
+}
+refs=_{
+    reference* ~ reference?
+}
+reference ={
+    "REFERENCE" ~ ASCII_DIGIT+ ~ range? ~ (author | ttl | jrnl | consrtm| pbmed | rmrk)+
+}
+RECORD_KWORD =_{
+    (
+    "LOCUS" | "DEFINITION" | "ACCESSION" | "VERSION" | "DBLINK" | "KEYWORDS" | "SOURCE" | "ORGANISM" | "REFERENCE"
+    | "AUTHORS" | "TITLE" | "JOURNAL" | "PUBMED" | "CONSRTM" | "REMARK" | "COMMENT" | "FEATURES" | "ORIGIN")~" "
+}
+rmrk =_{
+    "REMARK"~ remark
+}
+remark = @{
+    title
+}
+author =_{
+    "AUTHORS" ~ (aut_name ~ ("and"|",")?)+
+}
+aut_name=@{
+    (
+        (!((","~("\n"|"\t"|"\r"|" ")) |"\n" | "\r" | "\t"| " and " | RECORD_KWORD)) ~ ANY
+    )+
+}
+ttl= _{
+    "TITLE" ~ title
+}
+title=@{
+    ((!RECORD_KWORD) ~ ANY)*
+}
+jrnl =_{
+    "JOURNAL" ~ journal
+}
+journal=@{
+    title
+}
+consrtm = _{
+    "CONSRTM" ~ consortium
+}
+consortium=@{
+    title
+}
+pbmed =_{
+    "PUBMED" ~ pubmed
+}
+pubmed =@{
+    ASCII_DIGIT+
+}
+commt =_{
+    "COMMENT" ~ comment
+}
+comment =@{
+    ((!RECORD_KWORD) ~ ANY)*
+}
+range={
+	complement | join | base_range | single
+}
+single=@{
+    range_comp
+}
+base_range={
+	(range_comp ~ (".."| "to") ~ range_comp)
+	|("(bases" ~ range_comp ~ (".."| "to") ~ range_comp ~ ")")
+}
+complement={
+	"complement("~range~")"
+}
+join={
+    "join("~range~("," ~ range)+~")"
+}
+range_comp=@{
+    ("<"|">")?~ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*~("<"|">")?
+}
+
+kwords =_{"KEYWORDS" ~ keyword* ~ keyword?}
+
+keyword = @{
+    ((!(RECORD_KWORD | WHITESPACE )) ~ ANY)+
+}
+
+ver=_{
+    "VERSION" ~ ver_accession
+}
+ver_accession =${
+    accession~"."~version
+}
+version=@{
+    ASCII_DIGIT+
+}
+acc = _{
+    "ACCESSION" ~ accession+
+}
+dblk = _{
+    "DBLINK" ~ dblink*~ dblink?
+}
+src = _{
+    "SOURCE" ~ src_def
+}
+src_def = @{
+    ((!(RECORD_KWORD))~ANY)*
+}
+organism =_{
+    "ORGANISM" ~ sci_name ~ taxonomy
+}
+sci_name = @{
+    ((!NEWLINE)~ANY)*
+}
+taxonomy =${
+    txn*~txn?
+}
+txn=_{
+    taxon ~ (";" | ".")
+}
+taxon=@{
+    ((!(";"|"."|RECORD_KWORD))~ANY)+
+}
+dblink = ${
+    (!RECORD_KWORD) ~ ident ~ ":"~WHITESPACE+ ~ ident
+}
+ident = @{
+    ('a'..'z' | 'A'..'Z' | '0'..'9'|"-"|"_")+
+}
+
+accession = @{
+    ((!(RECORD_KWORD|WHITESPACE|NEWLINE|","|"."|";"|"!"|"?"|":"))~ANY)+
+}
+size = @{
+    ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* ~ " " ~ "bp"
+}
+alphabet = {
+    alphabet_dna | alphabet_rna | alphabet_protein | alphabet_mrna
+}
+alphabet_dna=@{
+    "DNA"
+}
+alphabet_rna=@{
+    "RNA"
+}
+alphabet_mrna=@{
+    "mRNA"
+}
+alphabet_protein=@{
+    ^"protein"
+}
+conformation = ${
+     circular | linear
+}
+circular=@{
+    "circular"
+}
+linear=@{
+    "linear"
+}
+section = @{
+    ASCII_ALPHANUMERIC{3}
+}
+date = @{ ASCII_DIGIT{1,2}~"-"~ASCII_ALPHA{3}~"-"~ASCII_DIGIT{4} }
+
+def = _{ "DEFINITION" ~ definition }
+definition = @{
+    ((! RECORD_KWORD)~ANY)*
+}
+
+features ={
+    "FEATURES" ~"Location/Qualifiers"~ feature+
+}
+feature ={
+    feature_key ~ range ~ feature_property*~feature_property?
+}
+
+feature_key = @{
+    (!RECORD_KWORD)~('a'..'z'|'A'..'Z'|"_"|"-"|'0'..'9')+
+}
+feature_property=${
+	"/"~property_name ~ ("="~property_value)?
+}
+property_name=@{
+	((!("="|NEWLINE|WHITESPACE))~ANY)*
+}
+property_value=${
+	 number | direction | string | tuple | repeat_type | unknown | ver_accession | accession
+}
+unknown=@{
+    ^"unknown"
+}
+repeat_type=@{
+    ^"tandem" | ^"DISPERSED"
+}
+number=@{
+	ASCII_DIGIT+
+}
+string=${
+    "\""~inner~"\""
+}
+direction=@{
+    "LEFT"|"RIGHT"|"left"|"right"
+}
+tuple=@{
+    "("~((!(")"~(" "|"\n")))~ANY)*~")"
+}
+inner = @{ char* }
+char = {
+    !("\"") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+origin ={
+    "ORIGIN" ~ sequence
+}
+sequence=_{
+    sequence_line*~sequence_line?
+}
+sequence_line=_{
+    (ASCII_NONZERO_DIGIT+~ASCII_DIGIT*) ~ sequence_block{1,6}
+}
+sequence_block=@{
+    ASCII_ALPHA{1,10}
+}
